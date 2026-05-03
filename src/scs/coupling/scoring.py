@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import math
+
 import pandas as pd
 
 from ..models import (
@@ -25,21 +27,26 @@ from ..models import (
 )
 
 
-def score_coupling(forward_hits: int, reverse_hits: int, total_incidents: int) -> float:
+def score_coupling(
+    forward_hits: int,
+    reverse_hits: int,
+    incident_coverage: int,
+    total_incidents: int,
+) -> float:
     if total_incidents <= 0:
         return 0.0
 
-    # a true coupled pair should show up in both directions, not just one
-    # consider the minimum of the two directions for conservative scoring
-    evidence = min(forward_hits, reverse_hits)
-    if evidence <= 0:
+    if incident_coverage <= 0:
         return 0.0
 
-    # if one direction is much stronger than the other, the balance should be low
+    # coverage says how often this pair appears across all incidents
+    coverage = incident_coverage / total_incidents
+    # a true coupled pair should show up in both directions, not just one
     balance = 1.0 - abs(forward_hits - reverse_hits) / max(forward_hits + reverse_hits, 1)
+    score = math.sqrt(coverage * balance)
 
-    # if the pair appears in both directions equally, final score should be high
-    return round((evidence / total_incidents) * balance, 4)
+    # keep the score normalized so thresholds are easy to reason about
+    return round(max(0.0, min(1.0, score)), 4)
 
 
 def build_coupling_df(
@@ -118,6 +125,7 @@ def build_coupling_df(
         lambda row: score_coupling(
             int(row[COUPLING_FORWARD_HITS_COL]),
             int(row[COUPLING_REVERSE_HITS_COL]),
+            int(row["incident_coverage"]),
             int(row[COUPLING_TOTAL_INCIDENTS_COL]),
         ),
         axis=1,

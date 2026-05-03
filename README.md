@@ -53,7 +53,7 @@ python -m pip install -e .
 ## Run with real data
 
 ```bash
-scs --alerts ./data/alerts.csv --traces ./data/traces.csv --min-score 0.0001 --output ./out/graph.mmd
+scs --alerts ./data/alerts.csv --traces ./data/traces.csv --min-score 0.05 --output ./out/graph.mmd
 ```
 
 ## Synthetic mode
@@ -62,9 +62,27 @@ The repo includes a synthetic data generator so you can test the pipeline locall
 
 ```bash
 mkdir -p out
-scs --synthetic --synthetic-incidents 400 --synthetic-seed 7 --synthetic-output-dir ./data/synthetic --min-score 0.0001 --output ./out/graph.mmd
+scs --synthetic --synthetic-incidents 400 --synthetic-seed 7 --synthetic-output-dir ./data/synthetic --min-score 0.05 --output ./out/graph.mmd
 ```
 
 ## Output
 
-The output is Mermaid flowchart that you can render into a visual graph. The graph is directional, and strong bidirectional relationships collapse into SCCs
+The output is Mermaid flowchart that you can render into a visual graph. The graph is directional, and strong bidirectional relationships collapse into SCCs.
+
+## Choosing `--min-score`
+
+the coupling score is normalized from `0` to `1`, so the threshold is easy to tune:
+
+- `0.00` to `0.02` = very permissive, usually noisy
+- `0.02` to `0.05` = good starting range for small or synthetic datasets
+- `0.05` to `0.10` = stricter, usually cleaner clusters
+- `0.10+` = only the strongest pairs survive
+
+a simple way to pick a threshold:
+
+1. start at `0.05`
+2. if the graph is empty or too sparse, lower to `0.02` or `0.01`
+3. if the graph is too noisy, raise it toward `0.10`
+4. keep the threshold where obvious coupled groups remain and unrelated edges fall away
+
+for this repo, `0.05` is a reasonable default for both synthetic and real runs, but real incident density may push you a little higher or lower.

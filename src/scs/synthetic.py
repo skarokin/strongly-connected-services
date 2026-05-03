@@ -1,7 +1,21 @@
-"""
-attempts to generate synthetic alert and trace data for local testing
+"""generate synthetic alert and trace data for local testing.
+what it generates:
+- alert rows with `incident_id`, `service`, `timestamp`, `name`, and `severity`
+- trace/span rows with `source_service`, `target_service`, `timestamp`, and
+  `duration_ms`
 
-this is full gpt icl so idk if it works well
+how it works:
+- define a few realistic service clusters as scenarios
+- rotate the service order per incident so the same pair can appear in both
+  directions across the dataset
+- generate trace rows for every service pair inside a scenario so the trace
+  side has a plausible dependency graph and latency distribution
+- generate alert rows for the same incident so the alert side has a failure
+  timeline to compare against the trace-derived timing window
+- include a couple of shared upstream roots like `postgres` and `redis_cache`
+  so the data also contains one-way root-cause style dependencies
+- stream the generated rows out in dataframe chunks so the rest of the code
+  can treat the synthetic path the same way it treats real inputs
 """
 
 from __future__ import annotations
@@ -62,6 +76,30 @@ SCENARIOS: tuple[SyntheticScenario, ...] = (
         services=("search_api", "indexer", "cache_warmer", "query_router"),
         trace_latency_ms=(600, 4500),
         alert_step_seconds=(1.5, 5.0),
+    ),
+    SyntheticScenario(
+        name="notifications_delivery",
+        services=("notifications_service", "email_worker", "sms_gateway", "template_renderer"),
+        trace_latency_ms=(700, 5000),
+        alert_step_seconds=(1.5, 6.0),
+    ),
+    SyntheticScenario(
+        name="analytics_pipeline",
+        services=("event_collector", "stream_processor", "metrics_aggregator", "warehouse_loader"),
+        trace_latency_ms=(900, 6500),
+        alert_step_seconds=(2.0, 7.5),
+    ),
+    SyntheticScenario(
+        name="gateway_routing",
+        services=("api_gateway", "tenant_router", "feature_flag_service", "rate_limiter"),
+        trace_latency_ms=(500, 3200),
+        alert_step_seconds=(1.0, 4.5),
+    ),
+    SyntheticScenario(
+        name="admin_compliance",
+        services=("admin_console", "audit_service", "compliance_exporter", "report_scheduler"),
+        trace_latency_ms=(650, 4800),
+        alert_step_seconds=(1.5, 5.5),
     ),
 )
 

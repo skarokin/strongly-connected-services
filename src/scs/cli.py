@@ -1,4 +1,4 @@
-"""command-line entrypoint for building and rendering service coupling graphs."""
+﻿"""command-line entrypoint for building and rendering service coupling graphs."""
 
 from __future__ import annotations
 
@@ -7,7 +7,6 @@ from pathlib import Path
 
 from .coupling import build_alert_pairs_df, build_coupling_df, build_plausible_windows_df, build_service_paths_df
 from .graph.build import build_graph
-from .graph.scc import scc_tarjans
 from .ingest.alerts import iter_alerts_df
 from .ingest.traces import iter_spans_df
 from .render.mermaid import render_mermaid
@@ -25,7 +24,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--synthetic-seed", type=int, default=7, help="random seed for synthetic data")
     parser.add_argument("--synthetic-chunk-size", type=int, default=50_000, help="chunk size for synthetic generation")
     parser.add_argument("--synthetic-output-dir", type=Path, help="optional directory to write synthetic csv files")
-    parser.add_argument("--min-score", type=float, default=0.1, help="minimum coupling score to render")
+    parser.add_argument("--min-score", type=float, default=0.05, help="minimum coupling score to render")
     parser.add_argument(
         "--alert-lag-seconds",
         type=float,
@@ -86,7 +85,7 @@ def main(argv: list[str] | None = None) -> int:
         alert_pairs_df,
         total_incidents=total_incidents,
     )
-    graph = build_graph(coupling_df, min_score=args.min_score)
+    graph = build_graph(service_paths_df, coupling_df, min_score=args.min_score)
     mermaid = render_mermaid(graph, title=args.title)
 
     if args.output is not None:
