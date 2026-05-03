@@ -1,39 +1,70 @@
 # strongly-connected-services
 
-Analysis tool that uses alerts to infer which services are tightly coupled by how often they fail together, with traces used to bootstrap topology and learn timing windows for propagation.
+Find tightly coupled services from observability data - specifically whether or not services seem to fail together
 
-I'm not doing alert clustering. Rather, service clustering using alert behavior as evidence.
-- Alert grouping would say "these alerts happened around the same time, so they're related."
-- Service grouping says "these services appear to be operationally coupled because their failures repeatedly show up together in a causal pattern."
+Uses `pandas` dataframes to combine trace-derived service topology with alert-derived failure evidence, then collapses the strongest bidirectional relationships into strongly connected components
 
-Alerts are used for:
-- identifying real failures
-- learning co-failure behavior
-- grouping incidents by shared symptoms
+This isn't alert clustering
+- Alert clustering says "these pages happened together, so they are related"
+- Service coupling says "these services repeatedly fail each other, so they behave like one failure domain"
 
-Traces are used for:
-- building the baseline service dependency graph
-- learning timing windows for alert propagation
-- explaining and validating suspected cascades
+## Dataframe-first pipeline
 
-## Probable window
+Project is built around chunked dataframes:
+- Traces are streamed into dataframe chunks
+- Trace chunks are summarized into service-path timing statistics
+- Those timings define a plausible alert propagation window (if an alert in service B follows an alert in service A, consider the coupling plausible if service B's alert lies within this window)
+- Alerts are streamed into dataframe chunks
+- Alert chunks are grouped by incident and turned into ordered service pairs
+- Candidate pairs are filtered by the trace-derived window
+- The remaining evidence is scored using repeated bidirectional failure behavior
+- Strong pairs are turned into a graph and rendered as Mermaid
 
-The tool uses traces to estimate a likely propagation window between services. If a traced path from service A to service B typically takes X time at p95, then alerts separated by roughly that amount plus a derived or pre-assumed alerting lag bufer are treated as plausible evidence of related failure behavior.
+## How timing is derived
 
-This window is simply a heuristic that says "this sequence is probably not random."
+Traces do not directly contribute to the coupling score; they are used to estimate a plausible window for a service pair. Example:
+- Service `A -> B` usually takes about `5s` at p95
+- An alert gap around that size is a plausible candidate
+- The pair still needs repeated bidirectional evidence to be considered truly coupled
 
-## High-confidence coupling signals
+So, the window is a filter and plausibility check
+
+## How coupling is decided
 
 Coupling becomes high confidence only when multiple signals agree:
+- Repeated bidirectional failure propagation between the same services
+- Stable timing that fits the trace-derived plausible window
+- No stronger shared-root explanation, like the same cache, deploy, node, or upstream outage
+- Enough repeated incidents to rule out coincidence
 
-- repeated bidirectional failure propagation between the same services
-- stable timing that fits the traced path and the probable window
-- a real dependency mechanism in traces or architecture
-- no stronger shared-root explanation, such as the same cache, deploy, node, or upstream outage
-- enough repeated incidents to rule out coincidence
+In other words:
+- Traces define what is plausible
+- Alerts show what actually happened
+- Repeated bidirectional evidence is what makes two services coupled
 
-In other words, traces define what is plausible, alerts show what actually happened, and the repeated combination of both is what lets the tool say two services are effectively coupled.
+# Install and run
 
-The graph does not generate "these services share the same dependency", it generates "these services tend to form a failure loop"
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+```
 
-So, the graph is DIRECTIONAL. An alert in Service A causing an alert in service B does not mean they are coupled. An alert in Service B ALSO causing an alert in service A now means they are coupled
+## Run with real data
+
+```bash
+scs --alerts ./data/alerts.csv --traces ./data/traces.csv --min-score 0.0001 --output ./out/graph.mmd
+```
+
+## Synthetic mode
+
+The repo includes a synthetic data generator so you can test the pipeline locally without exporting real observability data. It generates `alerts.csv` and `traces.csv`, then feeds them through the same pipeline.
+
+```bash
+mkdir -p out
+scs --synthetic --synthetic-incidents 400 --synthetic-seed 7 --synthetic-output-dir ./data/synthetic --min-score 0.0001 --output ./out/graph.mmd
+```
+
+## Output
+
+The output is Mermaid flowchart that you can render into a visual graph. The graph is directional, and strong bidirectional relationships collapse into SCCs
