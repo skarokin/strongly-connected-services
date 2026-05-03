@@ -101,6 +101,30 @@ SCENARIOS: tuple[SyntheticScenario, ...] = (
         trace_latency_ms=(650, 4800),
         alert_step_seconds=(1.5, 5.5),
     ),
+    SyntheticScenario(
+        name="checkout_pricing_promotions",
+        services=("checkout_service", "pricing_service", "promotions_service", "tax_service"),
+        trace_latency_ms=(700, 5200),
+        alert_step_seconds=(1.5, 6.5),
+    ),
+    SyntheticScenario(
+        name="identity_policy_tokens",
+        services=("identity_service", "role_service", "policy_engine", "token_service"),
+        trace_latency_ms=(500, 4200),
+        alert_step_seconds=(1.0, 4.0),
+    ),
+    SyntheticScenario(
+        name="media_upload_delivery",
+        services=("media_gateway", "transcoder", "thumbnailer", "object_store"),
+        trace_latency_ms=(900, 6800),
+        alert_step_seconds=(2.0, 7.0),
+    ),
+    SyntheticScenario(
+        name="realtime_collaboration",
+        services=("websocket_gateway", "presence_service", "room_service", "fanout_service"),
+        trace_latency_ms=(650, 5300),
+        alert_step_seconds=(1.5, 5.5),
+    ),
 )
 
 ALERT_SEVERITIES = ("warning", "critical")

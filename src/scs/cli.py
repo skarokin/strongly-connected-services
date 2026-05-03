@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .coupling import build_alert_pairs_df, build_coupling_df, build_plausible_windows_df, build_service_paths_df
 from .graph.build import build_graph
+from .graph.scc import scc_tarjans
 from .ingest.alerts import iter_alerts_df
 from .ingest.traces import iter_spans_df
 from .render.mermaid import render_mermaid
@@ -86,7 +87,8 @@ def main(argv: list[str] | None = None) -> int:
         total_incidents=total_incidents,
     )
     graph = build_graph(service_paths_df, coupling_df, min_score=args.min_score)
-    mermaid = render_mermaid(graph, title=args.title)
+    sccs = scc_tarjans(graph)
+    mermaid = render_mermaid(graph, sccs, title=args.title)
 
     if args.output is not None:
         args.output.write_text(mermaid, encoding="utf-8")
